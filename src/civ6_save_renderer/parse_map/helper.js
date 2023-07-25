@@ -28,6 +28,26 @@ function decompress(savefile) {
   return decompressed;
 }
 
+const terrains = [
+  2213004848,
+  1855786096,
+  1602466867,
+  4226188894,
+  3872285854,
+  2746853616,
+  3852995116,
+  3108058291,
+  1418772217,
+  1223859883,
+  3949113590,
+  3746160061,
+  1743422479,
+  3842183808,
+  699483892,
+  1248885265,
+  1204357597
+];
+
 /**
  * Convert compressed tile data in .Civ6Save file into json format
  * @param {buffer} savefile
@@ -53,7 +73,7 @@ function savetomap(savefile) {
     mapWidthStartIndex = bin.indexOf(mapWidthSearchBuffer, mapWidthStartIndex);
 
     if (mapWidthStartIndex == -1) {
-      throw new Error(`Couldn't find map width start index...`)
+      break;
     }
 
     width = bin.readInt16LE(mapWidthStartIndex + 8);
@@ -61,6 +81,27 @@ function savetomap(savefile) {
     if (width < 0) {
       width = 0;
     }
+  }
+
+  if (mapstartindex === -1) {
+    // Alternate search method by first terrain located
+    let firstTerrainIndex = Number.MAX_SAFE_INTEGER;
+
+    for (const terrain of terrains) {
+      var terrainBuf = Buffer.alloc(4);
+      terrainBuf.writeUInt32LE(terrain);
+      const terrainIndex = bin.indexOf(terrainBuf);
+
+      if (terrainIndex > -1 && terrainIndex < firstTerrainIndex) {
+        firstTerrainIndex = terrainIndex;
+      }
+    }
+
+    if (firstTerrainIndex === Number.MAX_SAFE_INTEGER) {
+      throw new Error("Could not find mapstartindex!");
+    }
+
+    mapstartindex = firstTerrainIndex - 28;
   }
 
   let mindex = mapstartindex + 16;
@@ -130,26 +171,6 @@ function savetomap(savefile) {
 
     // Validate next tile terrain to get us synced back up if buffer is bad
     if (i < tiles - 1) {
-      const terrains = [
-        2213004848,
-        1855786096,
-        1602466867,
-        4226188894,
-        3872285854,
-        2746853616,
-        3852995116,
-        3108058291,
-        1418772217,
-        1223859883,
-        3949113590,
-        3746160061,
-        1743422479,
-        3842183808,
-        699483892,
-        1248885265,
-        1204357597
-      ];
-
       let nextTerrainOffset = 0;
 
       const SEARCH_LENGTH = 1000;
