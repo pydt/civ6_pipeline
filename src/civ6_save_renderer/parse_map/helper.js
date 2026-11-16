@@ -49,6 +49,54 @@ const terrains = [
 ];
 
 /**
+ * Skip over a tile's list of 20-byte entries. An entry of type 0x0a is a
+ * table: its last field is the number of child entries that follow it.
+ * @param {Buffer} bin
+ * @param {number} pos start of the first entry
+ * @param {number} count number of entries at this level
+ * @return {number} position after the entries, or -1 if they don't fit
+ */
+function skipEntries(bin, pos, count, depth = 0) {
+  if (depth > 8) {
+    return -1;
+  }
+
+  for (let i = 0; i < count; i++) {
+    if (pos + 20 > bin.length) {
+      return -1;
+    }
+
+    const type = bin.readUInt32LE(pos + 4);
+    const children = bin.readUInt32LE(pos + 16);
+    pos += 20;
+
+    if (type === 0x0a) {
+      if (children > 10000) {
+        return -1;
+      }
+
+      pos = skipEntries(bin, pos, children, depth + 1);
+
+      if (pos === -1) {
+        return -1;
+      }
+    }
+  }
+
+  return pos;
+}
+
+/**
+ * Whether a tile record (with its terrain hash at +12) starts at pos
+ * @param {Buffer} bin
+ * @param {number} pos
+ * @return {boolean}
+ */
+function isTileStart(bin, pos) {
+  return pos >= 0 && pos + 16 <= bin.length && terrains.includes(bin.readUInt32LE(pos + 12));
+}
+
+/**
  * Convert compressed tile data in .Civ6Save file into json format
  * @param {buffer} savefile
  * @return {object} tiles
@@ -141,20 +189,42 @@ function savetomap(savefile) {
     }
     mindex += 55;
 
-    let buflength = {
-      1: 24,
-      2: 44,
-      3: 64
-    }[obj.overlayNum];
+    const ownedLength = (obj['flags2'] & 64) ? 17 : 0;
 
-    if (buflength) {
-      obj['buffer'] = bin.slice(mindex, mindex + buflength).toString('hex');
-      mindex += buflength;
-    } else {
-      obj['buffer'] = '';
+    // overlayNum counts the tile's entries, which follow as
+    // [count][entries]. Walk them to find exactly where the tile ends.
+    let entriesEnd = -1;
+
+    if (obj.overlayNum === 0) {
+      entriesEnd = mindex;
+    } else if (obj.overlayNum < 10000 && bin.readUInt32LE(mindex) === obj.overlayNum) {
+      entriesEnd = skipEntries(bin, mindex + 4, obj.overlayNum);
     }
 
-    if (obj['flags2'] & 64) {
+    const entriesOk =
+      entriesEnd > -1 && (i === tiles - 1 || isTileStart(bin, entriesEnd + ownedLength));
+
+    if (entriesOk) {
+      obj['buffer'] = bin.slice(mindex, entriesEnd).toString('hex');
+      mindex = entriesEnd;
+    } else {
+      // Unknown layout (e.g. older saves): fall back to the old fixed sizes and
+      // the terrain resync below.
+      let buflength = {
+        1: 24,
+        2: 44,
+        3: 64
+      }[obj.overlayNum];
+
+      if (buflength) {
+        obj['buffer'] = bin.slice(mindex, mindex + buflength).toString('hex');
+        mindex += buflength;
+      } else {
+        obj['buffer'] = '';
+      }
+    }
+
+    if (ownedLength) {
       // tile is owned by a player
       obj['city_1'] = bin.readUInt32LE(mindex);
       obj['city_2'] = bin.readUInt32LE(mindex + 4);
@@ -171,10 +241,10 @@ function savetomap(savefile) {
     }
 
     // Validate next tile terrain to get us synced back up if buffer is bad
-    if (i < tiles - 1) {
+    if (!entriesOk && i < tiles - 1) {
       let nextTerrainOffset = 0;
 
-      const SEARCH_LENGTH = 1000;
+      const SEARCH_LENGTH = Math.min(5000, bin.length - mindex - 4);
 
       while (
         nextTerrainOffset < SEARCH_LENGTH &&

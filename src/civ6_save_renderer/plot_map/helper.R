@@ -73,8 +73,12 @@ make_map_plot <- function(game_data, map_data) {
             ),
             "(\\d+)$", function(x) as.numeric(x) + 1
           ),
-        leader_outer_colour = ifelse(is.na(leader_outer_colour) | length(which(civs$leader == leader) > 1), default_colours[owner], leader_outer_colour),
-        leader_inner_colour = ifelse(is.na(leader_inner_colour) | length(which(civs$leader == leader) > 1), default_colours[length(default_colours) - 1 - owner], leader_inner_colour)
+        # Always use the high-contrast palette: in-game leader colours can be
+        # too similar to tell apart. owner is 0-based and R indexing is 1-based;
+        # default_colours[owner] dropped index 0 and recycled, so the last
+        # player got the same fill as player 0.
+        leader_outer_colour = default_colours[owner + 1],
+        leader_inner_colour = default_colours[length(default_colours) - 1 - owner]
       ),
     tibble(
       owner = setdiff(owner_ids, c(seq_len(nrow(civs)) - 1, 62L, 255L))
