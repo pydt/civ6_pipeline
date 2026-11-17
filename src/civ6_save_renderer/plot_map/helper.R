@@ -71,7 +71,7 @@ make_map_plot <- function(game_data, map_data) {
               ),
               sep= " "
             ),
-            "(\\d+)$", function(x) as.numeric(x) + 1
+            "(\\d+)$", function(x) as.character(as.numeric(x) + 1)
           ),
         # Always use the high-contrast palette: in-game leader colours can be
         # too similar to tell apart. owner is 0-based and R indexing is 1-based;
