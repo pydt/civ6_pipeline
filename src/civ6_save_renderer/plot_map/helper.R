@@ -113,7 +113,7 @@ make_map_plot <- function(game_data, map_data) {
     ggforce::geom_regon(aes(fill = terrain_name), alpha = alpha) +
     geom_text(aes(label = "^"), tab_static %>% filter(terrain_form == "Hill"), alpha = alpha) +
     geom_text(aes(label = "^"), tab_static %>% filter(terrain_form == "Mountain"), fontface = "bold", alpha = alpha) +
-    geom_segment(aes(x = xa, xend = xb, y = ya, yend = yb), colour = civ6saves::feature_palette[["River"]], rivers, size = 1, alpha = alpha) +
+    geom_segment(aes(x = xa, xend = xb, y = ya, yend = yb), colour = civ6saves::feature_palette[["River"]], rivers, linewidth = 1, alpha = alpha) +
     scale_fill_manual(values = civ6saves::terrain_palette) +
     theme(legend.position = "right")
 
@@ -144,7 +144,7 @@ make_map_plot <- function(game_data, map_data) {
 
   if (nrow(road_coords) > 0) {
     g <- g +
-      geom_segment(aes(x = xa, xend = xb, y = ya, yend = yb, colour = road_name), road_coords %>% mutate(x0 = xa, y0 = ya), size = 1.5, alpha = .4) +
+      geom_segment(aes(x = xa, xend = xb, y = ya, yend = yb, colour = road_name), road_coords %>% mutate(x0 = xa, y0 = ya), linewidth = 1.5, alpha = .4) +
       scale_colour_manual(values = c("Ancient Road" = "#8e712b", "Railroad" = "darkgray", "Classical Road" = "#a2a2a2", "Industrial Road" = "#6e6e6e", "Modern Road" = "#424242")) +
       labs(colour = "Road")
   }
@@ -154,7 +154,7 @@ make_map_plot <- function(game_data, map_data) {
       ggnewscale::new_scale_fill() +
       ggnewscale::new_scale_color() +
       ggforce::geom_regon(aes(fill = leader_name), tab %>% filter(!is.na(leader_name)), alpha = .6) +
-      geom_segment(aes(x = xa, xend = xb, y = ya, yend = yb, colour = leader_name), civ_borders %>% filter(!is.na(leader_name)), size = 1) +
+      geom_segment(aes(x = xa, xend = xb, y = ya, yend = yb, colour = leader_name), civ_borders %>% filter(!is.na(leader_name)), linewidth = 1) +
       geom_point(aes(x = x0, y = y0, colour = leader_name), cities %>% filter(!is.na(leader_name)), size = 3) +
       scale_fill_manual(values = owner_outer_palette) +
       scale_colour_manual(values = owner_inner_palette) +
